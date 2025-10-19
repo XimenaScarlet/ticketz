@@ -20,9 +20,17 @@ switch ($action) {
         flash('msg','Credenciales inválidas'); redirect('?page=login');
         break;
     case 'register':
-        [$ok,$msg]=register_user($_POST['name']??'', $_POST['email']??'', $_POST['pass']??'');
+        $email = $_POST['email'] ?? '';
+        $pass  = $_POST['pass'] ?? '';
+        [$ok,$msg]=register_user($_POST['name']??'', $email, $pass);
         flash('msg',$msg);
-        redirect($ok? '?page=dashboard' : '?page=register');
+        if ($ok) {
+            // Inicia sesión automáticamente tras registrar
+            login($email, $pass);
+            redirect('?page=dashboard');
+        } else {
+            redirect('?page=register');
+        }
         break;
     case 'logout':
         logout(); flash('msg','Sesión cerrada'); redirect('?page=home'); break;
@@ -62,7 +70,7 @@ switch ($action) {
         redirect('?page=phone'); break;
 }
 
-// ---- Pages ----
+// ---- Pages públicas (sin login) ----
 if ($page === 'home') {
     render_header('TicketZ — Inicio', $user);
     echo '<section class="hero-landing">
@@ -78,7 +86,6 @@ if ($page === 'home') {
           <div class="cta">
             <a class="primary" href="?page=login">Entrar</a>
             <a class="secondary" href="?page=register">Crear cuenta</a>
-            <button data-theme-toggle class="contrast">Alternar tema</button>
           </div>
           <div class="features">
             <div class="feature"><h3><span class="ico">🎫</span> Tickets claros</h3><p>Prioriza, clasifica y cambia estado en segundos.</p></div>
@@ -101,6 +108,31 @@ if ($page === 'home') {
     render_footer(); exit;
 }
 
+if ($page === 'login') {
+    render_header('Entrar', $user ?? null);
+    echo '<article class="card narrow"><h2>Iniciar sesión</h2>
+    <form method="post" action="?action=login">'.form_csrf().'
+        <label>Email<input type="email" name="email" required value="'.e($_POST['email']??'').'"></label>
+        <label>Contraseña<input type="password" name="pass" required></label>
+        <button type="submit">Entrar</button>
+        <small>Demo: <code>admin@demo.local</code> / <code>Admin123!</code></small>
+    </form></article>';
+    render_footer(); exit;
+}
+
+if ($page === 'register') {
+    render_header('Registro', $user ?? null);
+    echo '<article class="card narrow"><h2>Crear cuenta</h2>
+    <form method="post" action="?action=register">'.form_csrf().'
+        <label>Nombre<input type="text" name="name" required></label>
+        <label>Email<input type="email" name="email" required></label>
+        <label>Contraseña<input type="password" name="pass" minlength="6" required></label>
+        <button type="submit">Registrarme</button>
+    </form></article>';
+    render_footer(); exit;
+}
+
+// ---- A partir de aquí, páginas privadas ----
 require_login();
 
 if ($page === 'dashboard') {
