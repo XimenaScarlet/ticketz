@@ -1,0 +1,13 @@
+services:
+  ticketz:
+    build: .
+    image: ticketz-php-sqlite:latest
+    container_name: ticketz
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/var/www/html              # << monta todo el proyecto
+      - ./app/data:/var/www/html/app/data   # mantiene tu SQLite persistente
+    environment:
+      - APP_ENV=production
+    restart: unless-stopped
