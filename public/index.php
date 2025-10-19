@@ -2,6 +2,45 @@
 require_once __DIR__ . '/../app/bootstrap.php';
 csrf_check();
 
+/** Flash helpers within this file **/
+function pop_flash(string $key): ?string {
+    if (!isset($_SESSION)) session_start();
+    if (!isset($_SESSION['flash']) || !array_key_exists($key, $_SESSION['flash'])) return null;
+    $v = $_SESSION['flash'][$key];
+    unset($_SESSION['flash'][$key]);
+    return is_string($v) ? $v : null;
+}
+function render_toast_once(): void {
+    $msg = pop_flash('msg');
+    if (!$msg) return;
+    echo '<div id="toast-root" class="tz-toast" role="status" aria-live="polite">
+            <div class="tz-toast__card">
+              <div class="tz-toast__content">'.e($msg).'</div>
+              <button class="tz-toast__close" aria-label="Cerrar">✕</button>
+            </div>
+          </div>
+          <style>
+            .tz-toast{position:fixed; inset:auto 1rem 1rem auto; z-index:9999; display:flex; gap:.5rem; pointer-events:none}
+            .tz-toast__card{pointer-events:auto; background:var(--card-background,#fff); color:inherit; border:1px solid rgba(0,0,0,.06); border-radius:12px; padding:.75rem 1rem; box-shadow:0 10px 30px rgba(0,0,0,.12); min-width:260px; max-width:360px; display:flex; align-items:center; gap:.75rem; animation:tz-slide-in .24s ease-out}
+            .tz-toast__content{flex:1}
+            .tz-toast__close{background:transparent;border:0;font-size:1rem;line-height:1;cursor:pointer;opacity:.6}
+            .tz-toast__close:hover{opacity:1}
+            @keyframes tz-slide-in{from{transform:translateX(20px);opacity:0}to{transform:translateX(0);opacity:1}}
+            @media (max-width:600px){.tz-toast{inset:auto .75rem .75rem auto} .tz-toast__card{min-width:220px; max-width:90vw}}
+          </style>
+          <script>
+            (function(){
+              const root = document.getElementById("toast-root");
+              if(!root) return;
+              const closeBtn = root.querySelector(".tz-toast__close");
+              let t = setTimeout(()=> root.remove(), 5000);
+              root.addEventListener("mouseenter", ()=> { clearTimeout(t); });
+              root.addEventListener("mouseleave", ()=> { t = setTimeout(()=> root.remove(), 2000); });
+              closeBtn && closeBtn.addEventListener("click", ()=> root.remove());
+            })();
+          </script>';
+}
+
 $action = $_GET['action'] ?? null;
 $page   = $_GET['page'] ?? 'home';
 
@@ -49,7 +88,6 @@ switch ($action) {
     case 'profile':
         require_login();
         $u=$_SESSION['user'];
-        // Mantener API de update_profile: name, theme, notify_email, newpass.
         $name = trim($_POST['name']??$u['name']);
         $newpass = strlen($_POST['newpass']??'') ? $_POST['newpass'] : null;
         $ok=update_profile((int)$u['id'], $name, $u['theme'], (int)$u['notify_email'], $newpass);
@@ -76,6 +114,7 @@ switch ($action) {
 // ---- Páginas públicas ----
 if ($page === 'home') {
     render_header('TicketZ — Inicio', $user);
+    render_toast_once();
     echo '<section class="hero-landing">
       <svg class="hero-blob" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <g transform="translate(300,300)">
@@ -113,11 +152,9 @@ if ($page === 'home') {
 
 if ($page === 'login') {
     render_header('Entrar', $user ?? null);
+    render_toast_once();
     echo '<section class="auth-center">
-      <style>
-        .auth-center{min-height:calc(100vh - 120px);display:flex;align-items:center;justify-content:center;padding:2rem 1rem}
-        .auth-center .card{max-width:460px;width:100%}
-      </style>
+      <style>.auth-center{min-height:calc(100vh - 120px);display:flex;align-items:center;justify-content:center;padding:2rem 1rem}.auth-center .card{max-width:460px;width:100%}</style>
       <article class="card">
         <h2 style="text-align:center;margin-top:0">Iniciar sesión</h2>
         <form method="post" action="?action=login">'.form_csrf().'
@@ -132,11 +169,9 @@ if ($page === 'login') {
 
 if ($page === 'register') {
     render_header('Registro', $user ?? null);
+    render_toast_once();
     echo '<section class="auth-center">
-      <style>
-        .auth-center{min-height:calc(100vh - 120px);display:flex;align-items:center;justify-content:center;padding:2rem 1rem}
-        .auth-center .card{max-width:520px;width:100%}
-      </style>
+      <style>.auth-center{min-height:calc(100vh - 120px);display:flex;align-items:center;justify-content:center;padding:2rem 1rem}.auth-center .card{max-width:520px;width:100%}</style>
       <article class="card">
         <h2 style="text-align:center;margin-top:0">Crear cuenta</h2>
         <form method="post" action="?action=register">'.form_csrf().'
@@ -158,6 +193,7 @@ if ($page === 'dashboard') {
     $all  = ($user['role']==='agent' || $user['role']==='admin') ? list_all_tickets($_GET['f'] ?? null) : [];
 
     render_header('Dashboard', $user);
+    render_toast_once();
     echo '<div class="narrow">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:1rem">
           <h2 style="margin:0">Dashboard</h2>
@@ -233,6 +269,7 @@ if ($page === 'tickets') {
     $state = $_GET['f'] ?? 'todos';
     $list = list_my_tickets((int)$user['id'], $state);
     render_header('Mis Tickets', $user);
+    render_toast_once();
     echo '<div class="narrow"><h2>Mis Tickets</h2>
     <details><summary>Filtros</summary>
       <a href="?page=tickets&f=todos">Todos</a> ·
@@ -258,7 +295,7 @@ if ($page === 'ticket') {
     if (!$t) { flash('msg','Ticket no existe'); redirect('?page=tickets'); }
     $agents = list_agents();
     render_header('Ticket #'.$tid, $user);
-
+    render_toast_once();
     echo '<div class="narrow">
       <article class="card">
         <div class="ticket-header">
@@ -296,6 +333,7 @@ if ($page === 'ticket') {
 if ($page === 'agents') {
     $agents = list_agents();
     render_header('Agentes', $user);
+    render_toast_once();
     echo '<div class="narrow"><h2>Agentes y actividad</h2><div class="table-scroll"><table><thead>
     <tr><th>Nombre</th><th>Email</th><th>Estado</th><th>Tiempo en estado</th><th>Actividad</th></tr></thead><tbody>';
     foreach ($agents as $a) {
@@ -314,6 +352,7 @@ if ($page === 'agents') {
 if ($page === 'phone') {
     $me = user_by_id((int)$user['id']);
     render_header('Phone — Estatus', $user);
+    render_toast_once();
     $current = $me['status'] ?? 'offline';
     $since = $me['status_since'] ? human_duration(time() - (int)$me['status_since']) : '—';
     echo '<article class="card narrow">
@@ -337,11 +376,9 @@ if ($page === 'phone') {
 if ($page === 'profile') {
     $u = user_by_id((int)$user['id']);
     render_header('Perfil', $user);
+    render_toast_once();
     echo '<section class="auth-center">
-      <style>
-        .auth-center{min-height:calc(100vh - 120px);display:flex;align-items:center;justify-content:center;padding:2rem 1rem}
-        .auth-center .card{max-width:520px;width:100%}
-      </style>
+      <style>.auth-center{min-height:calc(100vh - 120px);display:flex;align-items:center;justify-content:center;padding:2rem 1rem}.auth-center .card{max-width:520px;width:100%}</style>
       <article class="card">
         <h2 style="text-align:center;margin-top:0">Perfil</h2>
         <form method="post" action="?action=profile">'.form_csrf().'
@@ -358,12 +395,10 @@ if ($page === 'profile') {
 if ($page === 'settings') {
     $u = user_by_id((int)$user['id']);
     render_header('Configuración', $user);
+    render_toast_once();
     $theme = $u['theme'] ?? 'light';
     echo '<section class="auth-center">
-      <style>
-        .auth-center{min-height:calc(100vh - 120px);display:flex;align-items:center;justify-content:center;padding:2rem 1rem}
-        .auth-center .card{max-width:520px;width:100%}
-      </style>
+      <style>.auth-center{min-height:calc(100vh - 120px);display:flex;align-items:center;justify-content:center;padding:2rem 1rem}.auth-center .card{max-width:520px;width:100%}</style>
       <article class="card">
         <h2 style="text-align:center;margin-top:0">Apariencia</h2>
         <form method="post" action="?action=theme">'.form_csrf().'
@@ -382,5 +417,6 @@ if ($page === 'settings') {
 
 http_response_code(404);
 render_header('404', $user);
+render_toast_once();
 echo '<h2>404</h2><p>Página no encontrada.</p>';
 render_footer();
