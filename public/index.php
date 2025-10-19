@@ -75,7 +75,6 @@ switch ($action) {
     case 'new_ticket':
         require_login();
         $uid = (int)$_SESSION['user']['id'];
-        // create_ticket ya asigna al creador (agent_id = user_id)
         $id = create_ticket(
             $uid,
             trim($_POST['title']??''),
@@ -88,12 +87,10 @@ switch ($action) {
         require_login();
         set_ticket_status((int)$_POST['ticket_id'], $_POST['status']);
         flash('msg','Estado actualizado');
-        // Redirige al dashboard
         redirect('?page=dashboard');
         break;
     case 'assign':
         require_login();
-        // Reasignación deshabilitada
         flash('msg','La reasignación está deshabilitada.');
         redirect('?page=ticket&id='.(int)($_POST['ticket_id'] ?? 0));
         break;
@@ -268,17 +265,115 @@ if ($page === 'dashboard') {
 
 if ($page === 'tickets') {
     $state = $_GET['f'] ?? 'todos';
+
+    // Ordenación: sort=status|updated|created|due , order=asc|desc
+    $sort  = $_GET['sort'] ?? 'updated';
+    $order = strtolower($_GET['order'] ?? 'desc');
+    $order = ($order === 'asc') ? 'asc' : 'desc';
+
     $list = list_my_tickets((int)$user['id'], $state);
+
+    // Enriquecer con created_at/due_at legibles
+    $enriched = [];
+    foreach ($list as $t) {
+        $created = (int)($t['created_at'] ?? 0);
+        $updated = (int)($t['updated_at'] ?? 0);
+        if (!$created) { $created = $updated ?: time(); }
+        $due = $created + 5*24*60*60; // mínimo 5 días después de creado
+        $t['__created'] = $created;
+        $t['__due']     = $due;
+        $t['__updated'] = $updated;
+        $enriched[] = $t;
+    }
+
+    // Map de orden por status
+    $statusRank = ['abierto'=>1, 'pendiente'=>2, 'cerrado'=>3];
+    $cmp = function($a, $b) use ($sort, $order, $statusRank) {
+        $dir = ($order === 'asc') ? 1 : -1;
+        switch ($sort) {
+            case 'status':
+                $sa = $statusRank[$a['status']] ?? 99;
+                $sb = $statusRank[$b['status']] ?? 99;
+                if ($sa === $sb) return 0;
+                return ($sa < $sb ? -1 : 1) * $dir;
+            case 'created':
+                if ($a['__created'] === $b['__created']) return 0;
+                return ($a['__created'] < $b['__created'] ? -1 : 1) * $dir;
+            case 'due':
+                if ($a['__due'] === $b['__due']) return 0;
+                return ($a['__due'] < $b['__due'] ? -1 : 1) * $dir;
+            case 'updated':
+            default:
+                if ($a['__updated'] === $b['__updated']) return 0;
+                return ($a['__updated'] < $b['__updated'] ? -1 : 1) * $dir;
+        }
+    };
+    usort($enriched, $cmp);
+
     render_header('Mis Tickets', $user);
     render_toast_once();
-    echo '<div class="narrow"><h2>Mis Tickets</h2>';
-    if (!$list) echo '<p>No hay resultados.</p>';
-    else {
-        echo '<div class="table-scroll"><table><thead><tr><th>#</th><th>Título</th><th>Estado</th><th>Agente</th><th>Actualizado</th></tr></thead><tbody>';
-        foreach ($list as $t) {
-            echo '<tr><td>'.(int)$t['id'].'</td><td><a href="?page=ticket&id='.(int)$t['id'].'">'.e($t['title']).'</a></td><td>'.e($t['status']).'</td><td>'.e($t['agent_name']??'—').'</td><td>'.date('Y-m-d H:i',(int)$t['updated_at']).'</td></tr>';
+
+    // Helper para URL de sort
+    function sort_link($key, $label, $currentSort, $currentOrder) {
+        $nextOrder = ($currentSort === $key && $currentOrder === 'asc') ? 'desc' : 'asc';
+        $arrow = '';
+        if ($currentSort === $key) {
+            $arrow = $currentOrder === 'asc' ? ' ↑' : ' ↓';
         }
-        echo '</tbody></table></div>';
+        $q = $_GET;
+        $q['sort'] = $key;
+        $q['order'] = $nextOrder;
+        $href = '?'.http_build_query($q);
+        return '<a class="sort-link" href="'.$href.'"><strong>'.$label.$arrow.'</strong></a>';
+    }
+
+    echo '<style>
+      .toolbar{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin:.5rem 0 1rem}
+      .sort-link{font-weight:700; text-decoration:none; border:0}
+      .sort-link:hover{opacity:.8; text-decoration:none}
+      th a.sort-link{font-weight:700; text-decoration:none; border:0}
+      .table-scroll th, .table-scroll td{white-space:nowrap}
+    </style>';
+
+    echo '<div class="narrow">';
+    echo '  <div class="toolbar">
+              <h2 style="margin:0">Mis Tickets</h2>
+              <div class="sort-controls" style="font-weight:700">
+                '. sort_link('status','Estatus', $sort, $order) .' · '
+                . sort_link('updated','Actualizado', $sort, $order) .' · '
+                . sort_link('created','Creado', $sort, $order) .' · '
+                . sort_link('due','Vence', $sort, $order) .'
+              </div>
+            </div>';
+
+    if (!$enriched) {
+        echo '<p>No hay resultados.</p>';
+    } else {
+        echo '<div class="table-scroll"><table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Título</th>
+                    <th>'.sort_link('status','Estatus', $sort, $order).'</th>
+                    <th>Agente</th>
+                    <th>'.sort_link('created','Creado', $sort, $order).'</th>
+                    <th>'.sort_link('updated','Actualizado', $sort, $order).'</th>
+                    <th>'.sort_link('due','Vence', $sort, $order).'</th>
+                  </tr>
+                </thead>
+                <tbody>';
+        foreach ($enriched as $t) {
+            echo '<tr>
+              <td>'.(int)$t['id'].'</td>
+              <td><a href="?page=ticket&id='.(int)$t['id'].'">'.e($t['title']).'</a></td>
+              <td>'.e($t['status']).'</td>
+              <td>'.e($t['agent_name']??'—').'</td>
+              <td>'.date('Y-m-d H:i', (int)$t['__created']).'</td>
+              <td>'.date('Y-m-d H:i', (int)$t['__updated']).'</td>
+              <td>'.date('Y-m-d H:i', (int)$t['__due']).'</td>
+            </tr>';
+        }
+        echo '  </tbody></table></div>';
     }
     echo '</div>';
     render_footer(); exit;
@@ -357,7 +452,6 @@ if ($page === 'agents') {
 
     echo '</div>';
 
-    // Dialogs for each agent
     foreach ($agents as $a) {
         $ago = $a['last_active'] ? (time() - (int)$a['last_active']) : 999999;
         $label = $ago < 120 ? 'En línea' : ($ago < 3600 ? 'Activo hace '.intval($ago/60).' min' : 'Hace '.intval($ago/3600).' h');
@@ -398,9 +492,6 @@ if ($page === 'agents') {
           card.addEventListener("click", (e)=>{
             const id = card.getAttribute("data-id");
             if(!id) return;
-            if(e.target && (e.target.matches("[data-open]") || e.target.closest("[data-open]"))) {
-              // handled below
-            }
             openDlg(id);
           });
         });
