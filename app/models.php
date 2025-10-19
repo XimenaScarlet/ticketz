@@ -19,10 +19,13 @@ function update_status(int $id, string $status): bool {
     $st = db()->prepare('UPDATE users SET status=?, status_since=? WHERE id=?');
     return $st->execute([$status, time(), $id]);
 }
+/**
+ * CREATE_TICKET: ahora asigna al creador como agente (agent_id = user_id)
+ */
 function create_ticket(int $user_id, string $title, string $category, string $priority, string $description): int {
     $pdo=db(); $now=time();
-    $stmt=$pdo->prepare('INSERT INTO tickets(user_id,title,category,priority,status,description,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)');
-    $stmt->execute([$user_id,$title,$category,$priority,'abierto',$description,$now,$now]);
+    $stmt=$pdo->prepare('INSERT INTO tickets(user_id,agent_id,title,category,priority,status,description,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)');
+    $stmt->execute([$user_id,$user_id,$title,$category,$priority,'abierto',$description,$now,$now]);
     return (int)$pdo->lastInsertId();
 }
 function assign_ticket(int $ticket_id, ?int $agent_id) {

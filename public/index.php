@@ -74,7 +74,15 @@ switch ($action) {
         logout(); flash('msg','Sesión cerrada'); redirect('?page=home'); break;
     case 'new_ticket':
         require_login();
-        $id = create_ticket((int)$_SESSION['user']['id'], trim($_POST['title']??''), $_POST['category']??'General', $_POST['priority']??'media', trim($_POST['description']??''));
+        $uid = (int)$_SESSION['user']['id'];
+        // create_ticket ya asigna al creador (agent_id = user_id)
+        $id = create_ticket(
+            $uid,
+            trim($_POST['title']??''),
+            $_POST['category']??'General',
+            $_POST['priority']??'media',
+            trim($_POST['description']??'')
+        );
         flash('msg','Ticket creado #'.$id); redirect('?page=ticket&id='.$id); break;
     case 'status':
         require_login();
@@ -82,9 +90,10 @@ switch ($action) {
         flash('msg','Estado actualizado'); redirect('?page=ticket&id='.(int)$_POST['ticket_id']); break;
     case 'assign':
         require_login();
-        $agent = $_POST['agent_id'] !== '' ? (int)$_POST['agent_id'] : null;
-        assign_ticket((int)$_POST['ticket_id'], $agent);
-        flash('msg','Asignación actualizada'); redirect('?page=ticket&id='.(int)$_POST['ticket_id']); break;
+        // Reasignación deshabilitada (si quieres permitirla solo a admin, cambia aquí)
+        flash('msg','La reasignación está deshabilitada.');
+        redirect('?page=ticket&id='.(int)($_POST['ticket_id'] ?? 0));
+        break;
     case 'profile':
         require_login();
         $u=$_SESSION['user'];
@@ -285,22 +294,14 @@ if ($page === 'ticket') {
         <p><b>Estado:</b> <span class="badge status-'.e($t['status']).'">'.e($t['status']).'</span> ·
            <b>Agente:</b> '.e($t['agent_name']??'—').'</p>
         <p>'.nl2br(e($t['description'] ?? '')).'</p>
-        <div class="grid-2">
+        <div class="grid-1">
           <form class="actions" method="post" action="?action=status">'.form_csrf().'
               <input type="hidden" name="ticket_id" value="'.(int)$t['id'].'">
               <label>Estado<select name="status"><option '.($t['status']=='abierto'?'selected':'').'>abierto</option><option '.($t['status']=='pendiente'?'selected':'').'>pendiente</option><option '.($t['status']=='cerrado'?'selected':'').'>cerrado</option></select></label>
               <button>Actualizar estado</button>
           </form>
-          <form class="actions" method="post" action="?action=assign">'.form_csrf().'
-              <input type="hidden" name="ticket_id" value="'.(int)$t['id'].'">
-              <label>Asignar a<select name="agent_id"><option value="">— sin asignar —</option>';
-              foreach ($agents as $a) {
-                  $sel = ($t['agent_id']??null)==$a['id'] ? 'selected' : '';
-                  $online = $a['last_active'] && (time() - (int)$a['last_active'] < 300) ? '🟢' : '⚪';
-                  echo '<option '.$sel.' value="'.(int)$a['id'].'">'.$online.' '.e($a['name']).'</option>';
-              }
-          echo '</select></label><button>Asignar</button></form>
         </div>
+        <style>.grid-1{display:grid;gap:1rem}</style>
       </article>
     </div>';
     render_footer(); exit;
