@@ -20,7 +20,6 @@ body {
   overflow: visible;
 }
 
-/* Titulares más claros y separados */
 .card .card-header, .card h1, .card h2, .card h3 {
   color: #22303b;
   margin-bottom: 8px;
