@@ -49,15 +49,12 @@
 }
 
 
-/* Navbar links in neutral black, no underline */
+/* --- Clickability fixes for landing --- */
+.hero-landing .cta{ position: relative; z-index: 5; }
+.hero-landing .cta a{ pointer-events: auto; cursor: pointer; }
+.hero-blob{ pointer-events: none; } /* decorative, never intercept clicks */
+/* keep page scroll normal (in case a previous style disabled it) */
+html, body { overflow: auto !important; }
+/* keep links styled as non-blue buttons */
 header nav a { color: inherit !important; text-decoration: none !important; }
-header nav a:hover { text-decoration: underline; }
-
-/* CTA buttons not underlined */
 .hero-landing .cta a { text-decoration: none !important; }
-
-/* Optional: ensure general links inside hero body keep normal style */
-.hero-landing a:not(.primary):not(.secondary) { text-decoration: underline; }
-
-/* Minor card polish */
-.hero-illus { background: white; }
