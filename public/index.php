@@ -25,8 +25,7 @@ switch ($action) {
         [$ok,$msg]=register_user($_POST['name']??'', $email, $pass);
         flash('msg',$msg);
         if ($ok) {
-            // Inicia sesión automáticamente tras registrar
-            login($email, $pass);
+            login($email, $pass); // auto-login
             redirect('?page=dashboard');
         } else {
             redirect('?page=register');
@@ -70,7 +69,7 @@ switch ($action) {
         redirect('?page=phone'); break;
 }
 
-// ---- Pages públicas (sin login) ----
+// ---- Páginas públicas ----
 if ($page === 'home') {
     render_header('TicketZ — Inicio', $user);
     echo '<section class="hero-landing">
@@ -110,29 +109,44 @@ if ($page === 'home') {
 
 if ($page === 'login') {
     render_header('Entrar', $user ?? null);
-    echo '<article class="card narrow"><h2>Iniciar sesión</h2>
-    <form method="post" action="?action=login">'.form_csrf().'
-        <label>Email<input type="email" name="email" required value="'.e($_POST['email']??'').'"></label>
-        <label>Contraseña<input type="password" name="pass" required></label>
-        <button type="submit">Entrar</button>
-        <small>Demo: <code>admin@demo.local</code> / <code>Admin123!</code></small>
-    </form></article>';
+    echo '<section class="auth-center">
+      <style>
+        .auth-center{min-height:calc(100vh - 120px);display:flex;align-items:center;justify-content:center;padding:2rem 1rem}
+        .auth-center .card{max-width:460px;width:100%}
+      </style>
+      <article class="card">
+        <h2 style="text-align:center;margin-top:0">Iniciar sesión</h2>
+        <form method="post" action="?action=login">'.form_csrf().'
+          <label>Email<input type="email" name="email" required value="'.e($_POST['email']??'').'"></label>
+          <label>Contraseña<input type="password" name="pass" required></label>
+          <button type="submit" class="btn-primary" style="width:100%">Entrar</button>
+        </form>
+      </article>
+    </section>';
     render_footer(); exit;
 }
 
 if ($page === 'register') {
     render_header('Registro', $user ?? null);
-    echo '<article class="card narrow"><h2>Crear cuenta</h2>
-    <form method="post" action="?action=register">'.form_csrf().'
-        <label>Nombre<input type="text" name="name" required></label>
-        <label>Email<input type="email" name="email" required></label>
-        <label>Contraseña<input type="password" name="pass" minlength="6" required></label>
-        <button type="submit">Registrarme</button>
-    </form></article>';
+    echo '<section class="auth-center">
+      <style>
+        .auth-center{min-height:calc(100vh - 120px);display:flex;align-items:center;justify-content:center;padding:2rem 1rem}
+        .auth-center .card{max-width:520px;width:100%}
+      </style>
+      <article class="card">
+        <h2 style="text-align:center;margin-top:0">Crear cuenta</h2>
+        <form method="post" action="?action=register">'.form_csrf().'
+          <label>Nombre<input type="text" name="name" required></label>
+          <label>Email<input type="email" name="email" required></label>
+          <label>Contraseña<input type="password" name="pass" minlength="6" required></label>
+          <button type="submit" class="btn-primary" style="width:100%">Registrarme</button>
+        </form>
+      </article>
+    </section>';
     render_footer(); exit;
 }
 
-// ---- A partir de aquí, páginas privadas ----
+// ---- Privadas ----
 require_login();
 
 if ($page === 'dashboard') {
@@ -140,7 +154,6 @@ if ($page === 'dashboard') {
     $all  = ($user['role']==='agent' || $user['role']==='admin') ? list_all_tickets($_GET['f'] ?? null) : [];
 
     render_header('Dashboard', $user);
-
     echo '<div class="narrow">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:1rem">
           <h2 style="margin:0">Dashboard</h2>
@@ -226,7 +239,7 @@ if ($page === 'tickets') {
     if (!$list) echo '<p>No hay resultados.</p>';
     else {
         echo '<div class="table-scroll"><table><thead><tr><th>#</th><th>Título</th><th>Estado</th><th>Agente</th><th>Actualizado</th></tr></thead><tbody>';
-        foreach ($list as $t) {
+        forEach ($list as $t) {
             echo '<tr><td>'.(int)$t['id'].'</td><td><a href="?page=ticket&id='.(int)$t['id'].'">'.e($t['title']).'</a></td><td>'.e($t['status']).'</td><td>'.e($t['agent_name']??'—').'</td><td>'.date('Y-m-d H:i',(int)$t['updated_at']).'</td></tr>';
         }
         echo '</tbody></table></div>';
