@@ -321,8 +321,21 @@ if ($page === 'agents') {
     $agents = list_agents();
     render_header('Agentes', $user);
     render_toast_once();
-    echo '<div class="narrow"><h2>Agentes y actividad</h2><div class="table-scroll"><table><thead>
-    <tr><th>Nombre</th><th>Email</th><th>Estado</th><th>Tiempo en estado</th><th>Actividad</th></tr></thead><tbody>';
+
+    echo '<section class="agents-wrap">
+      <style>
+        .agents-wrap{padding:1rem}
+        .grid-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1rem}
+        .agent-card{cursor:pointer; transition:transform .12s ease, box-shadow .12s ease;}
+        .agent-card:hover{transform:translateY(-2px); box-shadow:0 12px 24px rgba(0,0,0,.08)}
+        .agent-meta{font-size:.9rem; opacity:.8; margin:.25rem 0}
+        .agent-status{font-weight:600}
+        .agent-actions{display:flex; justify-content:flex-end}
+        dialog.modal{max-width:520px; width:100%}
+      </style>
+      <h2 style="text-align:center;margin:0 0 1rem">Agentes</h2>
+      <div class="grid-cards">';
+
     foreach ($agents as $a) {
         $ago = $a['last_active'] ? (time() - (int)$a['last_active']) : 999999;
         $label = $ago < 120 ? 'En línea' : ($ago < 3600 ? 'Activo hace '.intval($ago/60).' min' : 'Hace '.intval($ago/3600).' h');
@@ -330,9 +343,84 @@ if ($page === 'agents') {
         $state_label = $a['status'] === 'en_llamada' ? 'En llamada' :
                        ($a['status'] === 'disponible' ? 'Disponible' :
                         ($a['status'] === 'ausente' ? 'Ausente' : 'Offline'));
-        echo '<tr><td>'.e($a['name']).'</td><td>'.e($a['email']).'</td><td>'.$state_label.'</td><td>'.$since.'</td><td>'.$label.'</td></tr>';
+        $id = (int)$a['id'];
+        echo '<article class="card agent-card" data-id="agent-'.$id.'">
+                <header style="display:flex;justify-content:space-between;align-items:center">
+                  <h3 style="margin:.2rem 0">'.e($a['name']).'</h3>
+                  <span class="agent-status">'.$state_label.'</span>
+                </header>
+                <p class="agent-meta">'.e($a['email']).'</p>
+                <p class="agent-meta">Tiempo en estado: '.$since.'</p>
+                <div class="agent-actions"><button class="secondary" data-open="agent-'.$id.'">Ver detalles</button></div>
+              </article>';
     }
-    echo '</tbody></table></div></div>';
+
+    echo '</div>';
+
+    // Dialogs for each agent
+    foreach ($agents as $a) {
+        $ago = $a['last_active'] ? (time() - (int)$a['last_active']) : 999999;
+        $label = $ago < 120 ? 'En línea' : ($ago < 3600 ? 'Activo hace '.intval($ago/60).' min' : 'Hace '.intval($ago/3600).' h');
+        $since = $a['status_since'] ? human_duration(time() - (int)$a['status_since']) : '—';
+        $state_label = $a['status'] === 'en_llamada' ? 'En llamada' :
+                       ($a['status'] === 'disponible' ? 'Disponible' :
+                        ($a['status'] === 'ausente' ? 'Ausente' : 'Offline'));
+        $id = (int)$a['id'];
+        echo '<dialog id="agent-'.$id.'-dlg" class="modal">
+                <article>
+                  <header style="display:flex;justify-content:space-between;align-items:center">
+                    <div>
+                      <h3 style="margin:.2rem 0">'.e($a['name']).'</h3>
+                      <p class="agent-meta" style="margin:0">'.e($a['email']).'</p>
+                    </div>
+                    <button aria-label="Cerrar" class="secondary" data-close>✕</button>
+                  </header>
+                  <ul>
+                    <li><b>Estado:</b> '.$state_label.'</li>
+                    <li><b>Tiempo en estado:</b> '.$since.'</li>
+                    <li><b>Actividad:</b> '.$label.'</li>
+                    <li><b>ID:</b> '.$id.'</li>
+                  </ul>
+                  <footer style="display:flex;justify-content:flex-end;gap:.5rem">
+                    <button class="secondary" data-close>Cerrar</button>
+                  </footer>
+                </article>
+              </dialog>';
+    }
+
+    echo '<script>
+      (function(){
+        function openDlg(id){
+          const dlg = document.getElementById(id+"-dlg");
+          if(dlg) dlg.showModal();
+        }
+        document.querySelectorAll(".agent-card").forEach(card=>{
+          card.addEventListener("click", (e)=>{
+            const id = card.getAttribute("data-id");
+            if(!id) return;
+            if(e.target && (e.target.matches("[data-open]") || e.target.closest("[data-open]"))) {
+              // handled below
+            }
+            openDlg(id);
+          });
+        });
+        document.querySelectorAll("[data-open]").forEach(btn=>{
+          btn.addEventListener("click", (e)=>{
+            e.stopPropagation();
+            const id = btn.getAttribute("data-open");
+            if(id) openDlg(id);
+          });
+        });
+        document.querySelectorAll("dialog [data-close]").forEach(btn=>{
+          btn.addEventListener("click", (e)=>{
+            const dlg = btn.closest("dialog");
+            if(dlg) dlg.close();
+          });
+        });
+      })();
+    </script>
+    </section>';
+
     render_footer(); exit;
 }
 
