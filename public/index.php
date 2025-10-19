@@ -20,9 +20,7 @@ switch ($action) {
         flash('msg','Credenciales inválidas'); redirect('?page=login');
         break;
     case 'register':
-        [$ok,$msg]=register_user($_POST['name']??'',
-                                 $_POST['email']??'',
-                                 $_POST['pass']??'');
+        [$ok,$msg]=register_user($_POST['name']??'', $_POST['email']??'', $_POST['pass']??'');
         flash('msg',$msg);
         redirect($ok? '?page=dashboard' : '?page=register');
         break;
@@ -90,12 +88,12 @@ if ($page === 'home') {
         </div>
         <div class="hero-illus">
           <div>
-            <h4 style="margin:.2rem 0 1rem">Vista previa</h4>
-            <ul style="margin:0; padding-left:1.2rem; font-size:.95rem">
-              <li>Dashboard con cola global primero</li>
-              <li>Crear ticket en modal</li>
-              <li>Estados por agente (Phone)</li>
-            </ul>
+            <h3 style="margin:.2rem 0 1rem">¿Qué es TicketZ?</h3>
+            <p style="margin:0; max-width:42ch">
+              Una plataforma mínima pero potente para gestionar incidencias y solicitudes internas.
+              Crea tickets en segundos, asígnalos a agentes, actualiza estados y consulta el
+              historial cuando lo necesites. Ideal para equipos que quieren orden sin complicarse.
+            </p>
           </div>
         </div>
       </div>
@@ -196,7 +194,7 @@ if ($page === 'tickets') {
     if (!$list) echo '<p>No hay resultados.</p>';
     else {
         echo '<div class="table-scroll"><table><thead><tr><th>#</th><th>Título</th><th>Estado</th><th>Agente</th><th>Actualizado</th></tr></thead><tbody>';
-        forEach ($list as $t) {
+        foreach ($list as $t) {
             echo '<tr><td>'.(int)$t['id'].'</td><td><a href="?page=ticket&id='.(int)$t['id'].'">'.e($t['title']).'</a></td><td>'.e($t['status']).'</td><td>'.e($t['agent_name']??'—').'</td><td>'.date('Y-m-d H:i',(int)$t['updated_at']).'</td></tr>';
         }
         echo '</tbody></table></div>';

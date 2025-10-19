@@ -47,3 +47,16 @@
   .hero-blob{ width: 80%; inset: auto -25% -25% auto; }
   .features{ grid-template-columns: 1fr; }
 }
+
+/* Navbar links in neutral black, no underline */
+header nav a { color: inherit !important; text-decoration: none !important; }
+header nav a:hover { text-decoration: underline; }
+
+/* CTA buttons not underlined */
+.hero-landing .cta a { text-decoration: none !important; }
+
+/* Optional: ensure general links inside hero body keep normal style */
+.hero-landing a:not(.primary):not(.secondary) { text-decoration: underline; }
+
+/* Minor card polish */
+.hero-illus { background: white; }
