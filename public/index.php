@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../app/bootstrap.php';
 csrf_check();
 
-/** Flash helpers within this file **/
+/** Flash helpers (toasts) **/
 function pop_flash(string $key): ?string {
     if (!isset($_SESSION)) session_start();
     if (!isset($_SESSION['flash']) || !array_key_exists($key, $_SESSION['flash'])) return null;
@@ -116,11 +116,6 @@ if ($page === 'home') {
     render_header('TicketZ — Inicio', $user);
     render_toast_once();
     echo '<section class="hero-landing">
-      <svg class="hero-blob" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <g transform="translate(300,300)">
-          <path d="M120.7,-172.4C159.9,-149.5,194.6,-121.6,210.6,-85.1C226.6,-48.6,223.8,-3.6,210.8,36.8C197.8,77.3,174.6,113.3,144.4,146.1C114.3,178.9,77.2,208.4,35.3,227.4C-6.6,246.4,-52.9,254.8,-89.5,238.2C-126.1,221.5,-153.1,179.7,-179.6,140.3C-206.2,100.8,-232.3,63.8,-236.6,23.6C-240.9,-16.6,-223.4,-60.1,-197.3,-95.2C-171.2,-130.3,-136.4,-156.9,-100.7,-179.3C-65,-201.6,-28.5,-219.7,6.5,-229C41.5,-238.3,83,-238.9,120.7,-172.4Z" fill="#f4e6d6"/>
-        </g>
-      </svg>
       <div class="wrap">
         <div>
           <h1>Soporte ágil para tu equipo</h1>
@@ -128,21 +123,6 @@ if ($page === 'home') {
           <div class="cta">
             <a class="primary" href="?page=login">Entrar</a>
             <a class="secondary" href="?page=register">Crear cuenta</a>
-          </div>
-          <div class="features">
-            <div class="feature"><h3><span class="ico">🎫</span> Tickets claros</h3><p>Prioriza, clasifica y cambia estado en segundos.</p></div>
-            <div class="feature"><h3><span class="ico">👥</span> Agentes</h3><p>Ve quién está disponible y su tiempo en estado.</p></div>
-            <div class="feature"><h3><span class="ico">⚡</span> Ligero</h3><p>Sin dependencias pesadas: PHP + SQLite.</p></div>
-          </div>
-        </div>
-        <div class="hero-illus">
-          <div>
-            <h3 style="margin:.2rem 0 1rem">¿Qué es TicketZ?</h3>
-            <p style="margin:0; max-width:42ch">
-              Una plataforma mínima pero potente para gestionar incidencias y solicitudes internas.
-              Crea tickets en segundos, asígnalos a agentes, actualiza estados y consulta el
-              historial cuando lo necesites. Ideal para equipos que quieren orden sin complicarse.
-            </p>
           </div>
         </div>
       </div>
@@ -189,39 +169,41 @@ if ($page === 'register') {
 require_login();
 
 if ($page === 'dashboard') {
-    $mine = list_my_tickets((int)$user['id'], $_GET['f'] ?? null);
     $all  = ($user['role']==='agent' || $user['role']==='admin') ? list_all_tickets($_GET['f'] ?? null) : [];
 
     render_header('Dashboard', $user);
     render_toast_once();
-    echo '<div class="narrow">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:1rem">
-          <h2 style="margin:0">Dashboard</h2>
+
+    echo '<section class="auth-center">
+      <style>
+        .auth-center{min-height:calc(100vh - 120px);display:flex;align-items:flex-start;justify-content:center;padding:2rem 1rem}
+        .auth-center .card{max-width:1000px;width:100%}
+        .dash-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:1rem}
+      </style>
+      <article class="card">
+        <div class="dash-head">
+          <h2 style="margin:0">Cola global (agentes)</h2>
           <button id="btnNewTicket" class="btn-primary">+ Nuevo ticket</button>
-        </div>
+        </div>';
 
-        '.(($all && count($all)>0) ? ('<article class="card"><h3>Cola global (agentes)</h3><div class="table-scroll"><table><thead><tr><th>#</th><th>Título</th><th>Cliente</th><th>Estado</th><th>Agente</th></tr></thead><tbody>'.
-            implode("", array_map(function($t){
-                return "<tr><td>".(int)$t["id"]."</td><td><a href=\"?page=ticket&id=".(int)$t["id"]."\">".e($t["title"])."</a></td><td>".e($t["user_name"])."</td><td>".e($t["status"])."</td><td>".e($t["agent_name"]??"—")."</td></tr>";
-            }, array_slice($all,0,20)))
-            .'</tbody></table></div></article>') : '<article class="card"><h3>Cola global</h3><p class="small">Sin tickets globales o no eres agente.</p></article>').'
+    if ($all && count($all)>0) {
+        echo '<div class="table-scroll"><table>
+          <thead><tr><th>#</th><th>Título</th><th>Cliente</th><th>Estado</th><th>Agente</th></tr></thead><tbody>';
+        foreach (array_slice($all,0,50) as $t) {
+            echo '<tr>
+              <td>'.(int)$t['id'].'</td>
+              <td><a href="?page=ticket&id='.(int)$t['id'].'">'.e($t['title']).'</a></td>
+              <td>'.e($t['user_name']).'</td>
+              <td><span class="badge status-'.e($t['status']).'">'.e($t['status']).'</span></td>
+              <td>'.e($t['agent_name']??'—').'</td>
+            </tr>';
+        }
+        echo '</tbody></table></div>';
+    } else {
+        echo '<p class="small">Sin tickets globales o no eres agente.</p>';
+    }
 
-        <article class="card">
-          <h3>Actividad reciente</h3>';
-          if (!$mine) echo '<p class="small">Sin tickets aún.</p>';
-          else {
-              echo '<div class="table-scroll"><table><thead><tr><th>#</th><th>Título</th><th>Estado</th><th>Agente</th><th>Actualizado</th></tr></thead><tbody>';
-              foreach (array_slice($mine,0,8) as $t) {
-                  echo '<tr><td>'.(int)$t['id'].'</td>
-                  <td><a href="?page=ticket&id='.(int)$t['id'].'">'.e($t['title']).'</a></td>
-                  <td><span class="badge status-'.e($t['status']).'">'.e($t['status']).'</span></td>
-                  <td>'.e($t['agent_name'] ?? '—').'</td>
-                  <td>'.date('Y-m-d H:i', (int)$t['updated_at']).'</td></tr>';
-              }
-              echo '</tbody></table></div>';
-          }
     echo '  </article>
-      </div>
 
       <dialog id="dlgNewTicket" class="modal">
         <article>
@@ -260,7 +242,7 @@ if ($page === 'dashboard') {
           }
         })();
       </script>
-    ';
+    </section>';
 
     render_footer(); exit;
 }
@@ -270,13 +252,7 @@ if ($page === 'tickets') {
     $list = list_my_tickets((int)$user['id'], $state);
     render_header('Mis Tickets', $user);
     render_toast_once();
-    echo '<div class="narrow"><h2>Mis Tickets</h2>
-    <details><summary>Filtros</summary>
-      <a href="?page=tickets&f=todos">Todos</a> ·
-      <a href="?page=tickets&f=abierto">Abiertos</a> ·
-      <a href="?page=tickets&f=pendiente">Pendientes</a> ·
-      <a href="?page=tickets&f=cerrado">Cerrados</a>
-    </details>';
+    echo '<div class="narrow"><h2>Mis Tickets</h2>';
     if (!$list) echo '<p>No hay resultados.</p>';
     else {
         echo '<div class="table-scroll"><table><thead><tr><th>#</th><th>Título</th><th>Estado</th><th>Agente</th><th>Actualizado</th></tr></thead><tbody>';
