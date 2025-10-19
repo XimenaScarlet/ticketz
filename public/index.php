@@ -23,33 +23,11 @@ switch ($action) {
         $email = $_POST['email'] ?? '';
         $pass  = $_POST['pass'] ?? '';
         [$ok,$msg]=register_user($_POST['name']??'', $email, $pass);
+        flash('msg',$msg);
         if ($ok) {
-            // Forzar rol de AGENTE y campos de estado
-            try {
-                $pdo = db();
-                // buscar usuario recién creado
-                $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
-                $stmt->execute([$email]);
-                $uid = ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) ? (int)$row['id'] : null;
-                if ($uid) {
-                    $now = time();
-                    // algunos esquemas no tienen status/status_since: usar IF EXISTS via try/catch
-                    try {
-                        $pdo->prepare("UPDATE users SET role='agent', status=COALESCE(status,'disponible'), status_since=COALESCE(status_since, ?) WHERE id=?")
-                            ->execute([$now, $uid]);
-                    } catch (\Throwable $e) {
-                        // fallback: al menos rol
-                        $pdo->prepare("UPDATE users SET role='agent' WHERE id=?")->execute([$uid]);
-                    }
-                }
-            } catch (\Throwable $e) { /* ignore */ }
-
-            // Auto-login y a dashboard
             login($email, $pass);
-            flash('msg','Cuenta creada como agente ✔');
             redirect('?page=dashboard');
         } else {
-            flash('msg',$msg);
             redirect('?page=register');
         }
         break;
@@ -71,7 +49,10 @@ switch ($action) {
     case 'profile':
         require_login();
         $u=$_SESSION['user'];
-        $ok=update_profile((int)$u['id'], trim($_POST['name']??$u['name']), $_POST['theme']??$u['theme'], isset($_POST['notify_email'])?1:0, strlen($_POST['newpass']??'')?$_POST['newpass']:null);
+        // Mantener API de update_profile: name, theme, notify_email, newpass.
+        $name = trim($_POST['name']??$u['name']);
+        $newpass = strlen($_POST['newpass']??'') ? $_POST['newpass'] : null;
+        $ok=update_profile((int)$u['id'], $name, $u['theme'], (int)$u['notify_email'], $newpass);
         if ($ok) {
             $_SESSION['user']=user_by_id((int)$u['id']);
             flash('msg','Perfil actualizado');
@@ -82,7 +63,8 @@ switch ($action) {
         $th = $_POST['theme'] ?? 'light';
         update_profile((int)$_SESSION['user']['id'], $_SESSION['user']['name'], $th, (int)$_SESSION['user']['notify_email'], null);
         $_SESSION['user']=user_by_id((int)$_SESSION['user']['id']);
-        echo "ok"; exit;
+        flash('msg','Tema actualizado');
+        redirect('?page=settings'); break;
     case 'set_status':
         require_login();
         $st = $_POST['status'] ?? 'offline';
@@ -355,21 +337,46 @@ if ($page === 'phone') {
 if ($page === 'profile') {
     $u = user_by_id((int)$user['id']);
     render_header('Perfil', $user);
-    echo '<article class="card narrow"><h2>Perfil</h2>
-    <form method="post" action="?action=profile">'.form_csrf().'
-      <label>Nombre<input name="name" value="'.e($u['name']).'"></label>
-      <label>Tema<select name="theme"><option '.($u['theme']=='light'?'selected':'').'>light</option><option '.($u['theme']=='dark'?'selected':'').'>dark</option></select></label>
-      <label><input type="checkbox" name="notify_email" '.($u['notify_email']?'checked':'').'> Notificaciones por email</label>
-      <label>Nueva contraseña (opcional)<input type="password" name="newpass" minlength="6"></label>
-      <button>Guardar</button>
-    </form>
-    </article>';
+    echo '<section class="auth-center">
+      <style>
+        .auth-center{min-height:calc(100vh - 120px);display:flex;align-items:center;justify-content:center;padding:2rem 1rem}
+        .auth-center .card{max-width:520px;width:100%}
+      </style>
+      <article class="card">
+        <h2 style="text-align:center;margin-top:0">Perfil</h2>
+        <form method="post" action="?action=profile">'.form_csrf().'
+          <label>Nombre<input name="name" value="'.e($u['name']).'" required></label>
+          <label>Email<input type="email" value="'.e($u['email']).'" readonly></label>
+          <label>Nueva contraseña (opcional)<input type="password" name="newpass" minlength="6" placeholder="••••••"></label>
+          <button class="btn-primary" style="width:100%">Guardar</button>
+        </form>
+      </article>
+    </section>';
     render_footer(); exit;
 }
 
 if ($page === 'settings') {
+    $u = user_by_id((int)$user['id']);
     render_header('Configuración', $user);
-    echo '<article class="card narrow"><h2>Configuración</h2><p>Por ahora: tema claro/oscuro y notificaciones desde tu <a href="?page=profile">Perfil</a>.</p></article>';
+    $theme = $u['theme'] ?? 'light';
+    echo '<section class="auth-center">
+      <style>
+        .auth-center{min-height:calc(100vh - 120px);display:flex;align-items:center;justify-content:center;padding:2rem 1rem}
+        .auth-center .card{max-width:520px;width:100%}
+      </style>
+      <article class="card">
+        <h2 style="text-align:center;margin-top:0">Apariencia</h2>
+        <form method="post" action="?action=theme">'.form_csrf().'
+          <label>Tono de la página
+            <select name="theme">
+              <option value="light" '.($theme==='light'?'selected':'').'>Claro</option>
+              <option value="dark" '.($theme==='dark'?'selected':'').'>Oscuro</option>
+            </select>
+          </label>
+          <button class="btn-primary" style="width:100%">Guardar</button>
+        </form>
+      </article>
+    </section>';
     render_footer(); exit;
 }
 
