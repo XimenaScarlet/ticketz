@@ -91,9 +91,9 @@ switch ($action) {
         // Redirige al dashboard
         redirect('?page=dashboard');
         break;
-        case 'assign':
+    case 'assign':
         require_login();
-        // Reasignación deshabilitada (si quieres permitirla solo a admin, cambia aquí)
+        // Reasignación deshabilitada
         flash('msg','La reasignación está deshabilitada.');
         redirect('?page=ticket&id='.(int)($_POST['ticket_id'] ?? 0));
         break;
@@ -191,6 +191,9 @@ if ($page === 'dashboard') {
         .auth-center{min-height:calc(100vh - 120px);display:flex;align-items:flex-start;justify-content:center;padding:2rem 1rem}
         .auth-center .card{max-width:1000px;width:100%}
         .dash-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:1rem}
+        .row-stale { background:#ffeef0; }
+        .row-stale td { border-top:1px solid #ffd5d9; }
+        .cell-age { white-space:nowrap; font-variant-numeric: tabular-nums; }
       </style>
       <article class="card">
         <div class="dash-head">
@@ -200,13 +203,17 @@ if ($page === 'dashboard') {
 
     if ($all && count($all)>0) {
         echo '<div class="table-scroll"><table>
-          <thead><tr><th>#</th><th>Título</th><th>Cliente</th><th>Estado</th><th>Agente</th></tr></thead><tbody>';
+          <thead><tr><th>#</th><th>Título</th><th>Cliente</th><th>Estado</th><th>En estado</th><th>Agente</th></tr></thead><tbody>';
         foreach (array_slice($all,0,50) as $t) {
-            echo '<tr>
+            $ageSec = time() - (int)$t['updated_at'];
+            $since  = human_duration($ageSec);
+            $isStale = ($t['status'] !== 'cerrado' && $ageSec >= 600) ? ' row-stale' : '';
+            echo '<tr class="'.$isStale.'">
               <td>'.(int)$t['id'].'</td>
               <td><a href="?page=ticket&id='.(int)$t['id'].'">'.e($t['title']).'</a></td>
               <td>'.e($t['user_name']).'</td>
               <td><span class="badge status-'.e($t['status']).'">'.e($t['status']).'</span></td>
+              <td class="cell-age">'.$since.'</td>
               <td>'.e($t['agent_name']??'—').'</td>
             </tr>';
         }
