@@ -87,8 +87,11 @@ switch ($action) {
     case 'status':
         require_login();
         set_ticket_status((int)$_POST['ticket_id'], $_POST['status']);
-        flash('msg','Estado actualizado'); redirect('?page=ticket&id='.(int)$_POST['ticket_id']); break;
-    case 'assign':
+        flash('msg','Estado actualizado');
+        // Redirige al dashboard
+        redirect('?page=dashboard');
+        break;
+        case 'assign':
         require_login();
         // Reasignación deshabilitada (si quieres permitirla solo a admin, cambia aquí)
         flash('msg','La reasignación está deshabilitada.');
