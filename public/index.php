@@ -23,11 +23,33 @@ switch ($action) {
         $email = $_POST['email'] ?? '';
         $pass  = $_POST['pass'] ?? '';
         [$ok,$msg]=register_user($_POST['name']??'', $email, $pass);
-        flash('msg',$msg);
         if ($ok) {
-            login($email, $pass); // auto-login
+            // Forzar rol de AGENTE y campos de estado
+            try {
+                $pdo = db();
+                // buscar usuario recién creado
+                $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
+                $stmt->execute([$email]);
+                $uid = ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) ? (int)$row['id'] : null;
+                if ($uid) {
+                    $now = time();
+                    // algunos esquemas no tienen status/status_since: usar IF EXISTS via try/catch
+                    try {
+                        $pdo->prepare("UPDATE users SET role='agent', status=COALESCE(status,'disponible'), status_since=COALESCE(status_since, ?) WHERE id=?")
+                            ->execute([$now, $uid]);
+                    } catch (\Throwable $e) {
+                        // fallback: al menos rol
+                        $pdo->prepare("UPDATE users SET role='agent' WHERE id=?")->execute([$uid]);
+                    }
+                }
+            } catch (\Throwable $e) { /* ignore */ }
+
+            // Auto-login y a dashboard
+            login($email, $pass);
+            flash('msg','Cuenta creada como agente ✔');
             redirect('?page=dashboard');
         } else {
+            flash('msg',$msg);
             redirect('?page=register');
         }
         break;
@@ -239,7 +261,7 @@ if ($page === 'tickets') {
     if (!$list) echo '<p>No hay resultados.</p>';
     else {
         echo '<div class="table-scroll"><table><thead><tr><th>#</th><th>Título</th><th>Estado</th><th>Agente</th><th>Actualizado</th></tr></thead><tbody>';
-        forEach ($list as $t) {
+        foreach ($list as $t) {
             echo '<tr><td>'.(int)$t['id'].'</td><td><a href="?page=ticket&id='.(int)$t['id'].'">'.e($t['title']).'</a></td><td>'.e($t['status']).'</td><td>'.e($t['agent_name']??'—').'</td><td>'.date('Y-m-d H:i',(int)$t['updated_at']).'</td></tr>';
         }
         echo '</tbody></table></div>';
