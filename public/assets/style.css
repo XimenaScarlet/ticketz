@@ -1,0 +1,46 @@
+/* --- UI tweaks --- */
+:root { --font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+body { font-family: var(--font-family); }
+
+/* Center/narrow main content when needed */
+.narrow { max-width: 880px; margin-inline: auto; }
+
+/* Softer navbar links (inherit color, no blue) */
+header nav a { color: inherit !important; text-decoration: none; }
+header nav a:hover { text-decoration: underline; }
+header nav li { align-self: center; }
+
+/* Cards and badges */
+.card {
+  border: 1px solid var(--pico-muted-border-color);
+  border-radius: .9rem;
+  padding: 1.1rem 1.2rem;
+  box-shadow: 0 10px 30px rgba(0,0,0,.05);
+  background: var(--pico-card-background-color);
+}
+.badge {
+  padding: .25rem .6rem;
+  border-radius: 999px;
+  font-size: .8rem;
+  border: 1px solid var(--pico-muted-border-color);
+}
+.status-abierto{background: #eef6ff;}
+.status-pendiente{background:#fff7d6;}
+.status-cerrado{background:#e8fff6;}
+
+.table-scroll{ overflow:auto; }
+.actions { display:flex; gap:.5rem; flex-wrap:wrap; }
+textarea{min-height:120px;}
+.content { padding-block: 1rem 2.5rem; }
+
+/* Headings */
+h2,h3 { letter-spacing: .2px; }
+.ticket-header { display:flex; align-items:center; gap:.6rem; }
+.ticket-meta { color: var(--pico-muted-color); font-size: .95rem; }
+.kv { display:flex; gap:.6rem; flex-wrap: wrap; }
+.kv b { color: var(--pico-color); }
+/* modal width */
+dialog.modal { width: 720px; max-width: 92vw; border-radius: .9rem; }
+dialog::backdrop { backdrop-filter: blur(2px); }
+.btn-primary { background: var(--pico-primary); color: white; border-radius: .6rem; padding:.6rem 1rem; border:none; }
+.btn-primary:hover { filter: brightness(0.95); }
